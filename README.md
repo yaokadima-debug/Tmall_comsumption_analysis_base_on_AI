@@ -7,20 +7,21 @@
 
 kadima:
 
-探索claude code + deepseek v4 pro 在数据分析+BI报表搭建方向的能力，学习合适的提示词。
+> 项目由 AI 辅助开发（Claude Code + DeepSeek v4 Pro），从需求文档到可交付物全自动化。
+探索AI在数据分析+BI报表搭建方向的能力，及该方向合适的提示词。
 
 ---
 
 完整的电商用户数据分析平台，覆盖**数据提取 → 特征工程 → 机器学习聚类 → 交互式可视化 → 文档报告生成**全流程。
 
-> 项目由 AI 辅助开发（Claude Code + DeepSeek v4 Pro），从需求文档到可交付物全自动化。
 
 **使用unified_report.html查看BI报表**
+**在output_文件夹查看分析报告、PRD文档**
 
 ![统一BI报表首页](src/sample_01.png)
 ![统一BI报表首页](src/sample_02.png)
+![统一BI报表首页](src/sample_03.png)
 
-**在output_文件夹查看分析报告、PRD文档**
 
 ---
 
