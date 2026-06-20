@@ -17,7 +17,8 @@ kadima:
 
 **使用unified_report.html查看BI报表**
 
-![统一BI报表首页](src/sample_01.png,src/sample_02.png)
+![统一BI报表首页](src/sample_01.png)
+![统一BI报表首页](src/sample_02.png)
 
 **在output_文件夹查看分析报告、PRD文档**
 
