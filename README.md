@@ -15,9 +15,9 @@ kadima:
 完整的电商用户数据分析平台，覆盖**数据提取 → 特征工程 → 机器学习聚类 → 交互式可视化 → 文档报告生成**全流程。
 
 
-**使用unified_report.html查看BI报表**
+使用unified_report.html查看BI报表；
 
-**在output_文件夹查看分析报告、PRD文档**
+在output_文件夹查看分析报告、PRD文档；
 
 ![统一BI报表首页](src/sample_04.png)
 ![统一BI报表首页](src/sample_05.png)
