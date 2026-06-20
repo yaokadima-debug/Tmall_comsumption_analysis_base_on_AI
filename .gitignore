@@ -1,0 +1,32 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Claude Code project data
+.claude/
+
+# Sensitive files (database password)
+user_auth_db.py
+
+# Database export CSV files
+*.csv
+
+# Generated output files (optional, uncomment if desired)
+# *.html
+# *.docx
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Virtual environment
+venv/
+env/
+.venv/

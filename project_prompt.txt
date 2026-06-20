@@ -1,0 +1,381 @@
+============================================================
+天猫用户销售数据分析平台 - AI复现提示词
+============================================================
+版本: v2.1
+日期: 2026-06-20
+用途: 使用此提示词，可在任意支持Python的AI编程助手中复现整个项目
+适用模型: Claude Code / GPT-4 / DeepSeek 等具备代码生成能力的LLM
+============================================================
+
+【项目概述】
+
+请为我构建一个完整的天猫用户销售数据分析平台。项目中已有一个MySQL数据库 `tmall_data`，包含5张表，总计约57,000行数据。请从数据库提取数据，完成数据分析、机器学习聚类、BI可视化报表和分析报告生成。
+
+项目包含统一入口脚本 main.py，可一键运行全部7个分析脚本。
+
+【数据库连接信息】
+- 数据库类型: MySQL 8.0
+- 主机: localhost
+- 端口: 3306
+- 用户名: root
+- 密码: 请查看 user_auth_db.py 文件并修改为实际密码
+- 数据库名: tmall_data
+- 字符集: utf8mb4
+- Python连接库: pymysql
+- IMPORTANT: 数据库密码已提取到 user_auth_db.py，请修改该文件中的 DB_CONFIG['password'] 为实际密码后运行所有脚本
+
+【数据库表结构】
+
+表1: users (用户基础信息表, 5,000行)
+字段: user_id VARCHAR(255), age INT, gender VARCHAR(255), province VARCHAR(255), city VARCHAR(255), registration_date VARCHAR(255), member_level VARCHAR(255), account_balance DOUBLE, credit_score INT
+说明: member_level取值: 普通/铜牌/银牌/金牌/钻石; credit_score范围: 400-800; age范围: 18-63
+
+表2: orders (订单表, 15,000行)
+字段: order_id VARCHAR(255), user_id VARCHAR(255), product_id VARCHAR(255), quantity INT, order_date VARCHAR(255), order_date_date DATE, order_status VARCHAR(255), payment_method VARCHAR(255), unit_price DOUBLE, total_amount DOUBLE, discount DOUBLE, actual_payment DOUBLE, delivery_date VARCHAR(255), receive_date VARCHAR(255), review_score INT, review_content VARCHAR(255)
+说明: order_status取值: 待付款/已付款/已发货/已收货/已完成/已取消/已退款; payment_method取值: 支付宝/微信/银行卡/信用卡/花呗; review_score范围: 4-5; order_date和order_date_date为同一日期不同格式
+
+表3: products (产品表, 2,000行)
+字段: product_id VARCHAR(255), product_name VARCHAR(255), category VARCHAR(255), brand VARCHAR(255), price DOUBLE, sales_count INT
+说明: category有15个品类; brand有113个品牌
+
+表4: user_behaviors (用户行为表, 30,000行)
+字段: behavior_id VARCHAR(255), user_id VARCHAR(255), product_id VARCHAR(255), behavior_type VARCHAR(255), behavior_time DATETIME, duration_seconds INT
+说明: behavior_type取值: 浏览/点击/收藏/加购
+
+表5: user_features (用户特征表, 5,000行)
+字段: user_id VARCHAR(255), total_spent DOUBLE, order_count DOUBLE, avg_order_amount DOUBLE, browse_count DOUBLE, click_count DOUBLE, favorite_count DOUBLE, cart_count DOUBLE, days_since_last_order INT, order_frequency DOUBLE, repurchase_indicator INT, purchase_intent DOUBLE, consumption_level VARCHAR(255), member_level_score INT
+说明: consumption_level取值: 高/中/低; repurchase_indicator: 0/1
+
+【需要创建的Python脚本文件】
+
+============================================================
+脚本0: D:\softdata\claude\test002\main.py (~250行)
+============================================================
+这是项目的统一入口脚本，负责按依赖顺序依次执行以下7个分析脚本。
+
+功能要求:
+1. 支持命令行参数: --step(逐步确认模式)、--check(环境与数据库检查)
+2. 运行前自动检查: Python版本、依赖包(pymysql/pandas/numpy/sklearn/plotly/python-docx)
+3. 运行前检查数据库连接(调用user_auth_db.get_connection())
+4. 顺序执行7个脚本: user_profiling → unified_report → generate_bi_report → generate_exploration_report → generate_prd → generate_summary → generate_future_plan
+5. 每个脚本完成后检查输出文件是否存在及大小
+6. 最终汇总打印全部输出文件列表(文件名+大小)
+7. 处理异常: 单个脚本失败不影响后续脚本，最后汇总成功/失败数量
+
+============================================================
+脚本1: D:\softdata\claude\test002\unified_report.py (~2,100行)
+============================================================
+这是项目的核心脚本，负责生成统一的9 Tab交互式HTML BI报表。
+
+功能要求:
+1. 从MySQL提取全部5张表的数据到pandas DataFrame
+2. 数据预处理: 日期字段转换、缺失值处理、数据类型转换
+3. 计算以下9个模块的所有指标和图表数据:
+
+模块0 - 分析首页:
+- 顶部数据概览行(总用户数/总订单数/总GMV/数据时间范围)
+- 7个分析模块的导航卡片(营收总览/用户生命周期/产品分析/用户画像/行为分析/用户聚类/评价服务)
+- 指标字典: 12个核心指标的定义和计算公式(GMV/实际营收/客单价ARPU/折扣率/复购率/DAU/MAU/粘性比/LTV/留存率/转化率/RFM/轮廓系数)
+- 5条核心结论摘要
+- 优先行动事项表(P0/P1/P2分级)
+
+模块1 - 营收总览:
+- 6个KPI卡片: GMV/实收/订单数/客单价/折扣率/复购率
+- 图表: 月度GMV&营收趋势(双轴柱状图)、日度营收+7日移动平均线、月度订单量vs客单价(双轴)、折扣率&ARPU趋势、支付方式分布(饼图+柱状图)、订单状态分布(环形图)
+- KPI卡片需显示环比变化百分比和箭头(↑↓)
+
+模块2 - 用户生命周期(新增):
+- 4个KPI卡片: DAU均值/粘性比(DAU/MAU)/平均复购间隔/用户平均LTV
+- 图表: DAU趋势线(折线图)、月新增vs月流失用户(柱状图)、用户生命周期阶段分布(环形图: 新用户/活跃/沉默/流失)、周度留存队列热力图(Cohort Retention Heatmap)、复购间隔分布(直方图)、LTV按订单数分布(分组柱状图)
+- 生命周期阶段定义: 新用户(首次下单≤30天)、活跃(最近30天有行为)、沉默(30-90天无行为)、流失(>90天无行为)
+
+模块3 - 产品分析:
+- 图表: 品类销售额排名(Top15横向柱状图)、品牌销售额Top10(横向柱状图)、品类均价对比(柱状图)、价格区间商品数vs销量(双轴柱状图)
+- 表格: 关联购买TOP组合表(如有数据)
+- KPI: 品类集中度(HHI指数)、Top品牌贡献率
+
+模块4 - 用户画像:
+- 图表: 性别分布(饼图)、年龄段分布(柱状图)、会员等级分布(柱状图)、Top10省份用户分布(横向柱状图)、消费等级分布(环形图)
+- 交叉分析表: 会员等级×消费等级的交叉分析表
+
+模块5 - 行为分析:
+- 图表: 用户行为转化漏斗(浏览→点击→收藏→加购→下单，含各阶段转化率%标注)、日度行为量vs营收(双轴折线图)、时段行为分布(小时级热力柱状图)、行为时长分布(直方图)、用户活跃度分层(按行为次数分段)
+- 分析: 转化瓶颈定位、推送时机建议
+
+模块6 - 用户聚类:
+- 算法: 从user_features表选取12维特征 → StandardScaler标准化 → K-Means(K=2~8) → 肘部法则+轮廓系数确定最佳K → 选定K=5
+- 图表: 肘部法则图(SSE)、轮廓系数图、PCA降维散点图(K=5)、群体数量分布(柱状图)、RFM三维雷达图(5群体)、群体性别构成(分组柱状图)、群体消费等级构成(堆叠柱状图)
+- 表格: 群体特征表(R/F/M均值、年龄均值、性别比、会员分布)
+- 5个群体的运营策略建议(差异化，具体可执行)
+- 聚类结果写入MySQL表 claude_user_clusters
+- 顶部添加提示卡片指向"分层迁移"标签页查看详细的桑基图分析
+
+模块7 - 用户分层迁移 (桑基图):
+- 桑基图: 将数据按中间日期分为P1(前半段)和P2(后半段)，对每个用户在两时段分别计算生命周期阶段(新用户/活跃/沉默/流失)和RFM价值分层(高/中/低/无消费)
+- 图表: 生命周期迁移桑基图(height=420, pad=18, thickness=22)、RFM迁移桑基图(尺寸统一)，两张桑基图使用统一画布宽度和节点样式
+- 迁移矩阵表: P1→P2各阶段用户流动数量矩阵(含P1总计列)
+- 净流量分析表: 每个阶段的净流入/流出人数 + P2留存率
+- 关键迁移路径: TOP3迁移路径及其流向人数
+- 深度分析HTML: 迁移原因分析(5条)、迁移结果总结(正面+风险警报)、运营方案建议(P0/P1/P2三级)
+- 分析数据: 迁移总人数、最优/最差留存阶段、RFM升级/降级/稳定人数统计
+
+模块8 - 评价服务:
+- 4个KPI: 平均评分/平均配送天数/取消率/退款率
+- 图表: 评分分布(柱状图 4-5分)、月度平均评分趋势(折线图)、物流时效分布(发货到收货天数直方图)、取消/退款订单的支付方式分布(堆叠柱状图)
+
+全局要求:
+- 使用Plotly 6.x生成所有交互式图表(≥39个，含2张桑基图)
+- 使用纯CSS实现Tab切换(radio button + label方案)，共9个标签页，CSS选择器#tab0-c~#tab8-c:checked覆盖全部tab
+- 默认显示Tab 0(首页)
+- Tab切换时触发 Plotly.Plots.resize() 确保图表正确渲染
+- 响应式布局: @media (max-width: 1100px) 3列变2列, @media (max-width: 768px) 全堆叠
+- 配色方案: 主色调 #667eea, 背景渐变 #667eea→#764ba2, KPI卡片白底圆角阴影
+- 图表配色统一: 使用专业色板(Plotly默认或自定义)
+- 所有数据表格包裹在 .table-wrap 容器中(overflow-x: auto)
+- 每个分析Tab顶部放置"核心发现"文本卡片
+- HTML输出为单文件，包含内联CSS和JS
+- 图表在页面加载时一次性渲染(而非切换时渲染)
+
+时间筛选功能:
+- 在配置信息栏下方添加 .time-filter 样式区块(白底、flex布局)
+- 双滑块(range input)选择起始/结束月份，默认选中全部月份
+- 实时显示筛选状态和月份范围
+- 按钮: "重置"按钮恢复全部时段
+- 新增 compute_monthly_data() Python函数: 按月份聚合营收/DAU/行为/支付方式/评分/生命周期阶段/品类/性别/年龄等数据，序列化为JSON嵌入HTML (var MONTHLY_DATA = {...})
+- 新增 month_dates 映射: 每月对应起止日期，用于日度图表的x轴范围过滤
+- JavaScript函数 applyTimeFilter(): 根据选择过滤月度数据 → 更新全部Tab的KPI卡片DOM → updateTimeSeriesCharts()使用Plotly.update()刷新全Tab时序图表 + Plotly.relayout()调整日度图表x轴显示范围
+- 过滤范围覆盖全部Tab: 营收(月度GMV/订单/折扣)、生命周期(新增/流失用户图表)、评价(月度评分图表)、日度图表(c1_revenue_daily/c2_dau_wau_mau/c5_behavior_revenue通过xaxis.range过滤)
+- KPI卡片需添加唯一id属性(如 id="kpi-gmv"/id="kpi-dau"/id="kpi-avg-review")供JS定位更新
+- 复杂图表(聚类/留存热力图/桑基图)保留全量数据，不随筛选变化
+
+配置信息栏 (在header和container之间):
+- 添加 .meta-bar 样式区块(白底、底部细线边框、flex布局)
+- 显示4项信息:
+  1. 作者: kadima
+  2. 完成时间: 当前日期时间 (Python datetime.now())
+  3. AI配置: Claude Code + DeepSeek v4 Pro (小标签样式，浅紫蓝底色)
+  4. 技术栈: SQL(MySQL 8.0) + Python 3.11+ + pandas + sklearn + Plotly + python-docx (小标签样式)
+- Footer同步更新: "天猫用户销售数据 统一分析报表 | 作者: kadima | 自动生成于 [当前时间] | AI: Claude Code + DeepSeek v4 Pro | 数据来源: tmall_data MySQL"
+
+- 输出文件: D:\softdata\claude\test002\unified_report.html
+
+============================================================
+脚本2: D:\softdata\claude\test002\generate_exploration_report.py
+============================================================
+功能: 生成Word格式的数据探索分析报告
+
+要求:
+- 使用python-docx库
+- 创建辅助函数: set_cell_shading(单元格背景色)、add_styled_table(统一风格表格，表头紫蓝色#667eea、隔行浅蓝#F8F9FF/白色、字号9pt)、add_heading(深灰色#333333标题)、add_body(灰色#555555正文)、add_insight_box(蓝色洞察框)
+- 报告包含10个章节:
+  1. 数据概览(5表统计: 行数/列数/时间范围/缺失情况)
+  2. 营收分析(GMV/实收/折扣率/ARPU/复购率，均以表格呈现)
+  3. 用户生命周期分析(DAU/MAU/留存/LTV/流失指标表格)
+  4. 产品分析(品类/品牌/价格带分析表格)
+  5. 用户画像分析(性别/年龄/会员/地域分布表格)
+  6. 行为分析(转化漏斗/时段分布表格)
+  7. RFM分析(R/F/M分段统计表)
+  8. 用户聚类分析(5群体特征表和运营建议)
+  9. 评价服务分析(评分/物流/取消表格)
+  10. 优先行动事项(P0紧急/P1重要/P2常规，含数据证据、具体行动、预期效果、时间线)
+- 每个模块包含: 数据表格 + 蓝色洞察框(核心发现+建议)
+- 表格对齐方式: 居中
+- 输出文件: D:\softdata\claude\test002\tmall_exploration_report.docx
+
+============================================================
+脚本3: D:\softdata\claude\test002\user_profiling.py (562行)
+============================================================
+功能: 用户聚类分析独立脚本
+
+要求:
+- 从MySQL提取users + user_features表数据
+- RFM特征工程: 计算R值(距今天数=365-距上次下单天数标准化)、F值(订单数)、M值(累计消费)
+- 特征矩阵构建: 选择12个数值特征(R/F/M + browse_count/click_count/favorite_count/cart_count/avg_order_amount/order_frequency/purchase_intent/member_level_score/age)
+- StandardScaler标准化
+- K-Means聚类: K=2到8遍历，记录SSE和Silhouette Score，自动选择最佳K(目标K=5，通过肘部法则+轮廓系数验证)
+- PCA降维到2维用于可视化
+- 聚类命名: 使用RFM排序法(R-rank + F-rank + M-rank综合分)确保5个群体获得唯一且有业务含义的名称:
+  * 高价值忠诚用户(高F高M低R)
+  * 活跃发展中用户(中F中M中R)
+  * 潜力唤醒用户(中低F中低M中高R)
+  * 低频待激活用户(低F低M中R)
+  * 流失预警用户(低F低M高R)
+- 生成HTML聚类报告(含肘部法则图、轮廓系数图、PCA散点图、群体分布图、RFM雷达图、特征表、运营建议)
+- 聚类结果写入MySQL: 创建表 claude_user_clusters(user_id, cluster, cluster_name, R值, F值, M值, PCA_X, PCA_Y)，插入5000条
+- 使用 random_state=42 确保可复现
+- 输出: 终端打印群体统计 + HTML报告 + 数据库写入
+
+============================================================
+脚本4: D:\softdata\claude\test002\generate_prd.py
+============================================================
+功能: 生成PRD产品需求文档Word
+
+要求:
+- 封面: 项目名称 + 版本/日期/状态
+- 章节1: 项目背景与目标(业务背景 + 4个核心目标)
+- 章节2: 项目期望收获与价值
+  - 2.1 业务价值: 收入增长/成本节约/用户资产保值/决策效率
+  - 2.2 技术价值: 可复用Pipeline/聚类模型/指标体系/全栈方案
+  - 2.3 组织价值: 数据文化/技能沉淀/跨部门协同/AI验证
+- 章节3: 数据源与表结构(5张表的完整字段定义表格)
+- 章节4: 技术方案(技术栈表格 + 数据Pipeline架构 + 关键算法说明)
+- 章节5: 分析模块设计规格(7个模块的详细规格表: 模块名/产出量/核心指标/可视化内容/业务用途)
+- 章节6: 输出交付物规格(8项交付物的表格: 名称/格式/规格/说明)
+- 章节7: 验收标准(数据准确性/功能完整性/用户体验)
+- 章节8: 环境依赖与运行(运行环境 + 安装命令 + 运行步骤)
+- 输出文件: D:\softdata\claude\test002\tmall_prd.docx
+
+============================================================
+脚本5: D:\softdata\claude\test002\generate_summary.py
+============================================================
+功能: 生成项目总结报告Word
+
+要求:
+- 封面: 项目名称 + 日期/版本/AI协作说明
+- 章节1: 项目概述(范围表格 + 与PRD的关系说明——简要引用不重复)
+- 章节2: 核心成果与关键发现
+  - 2.1 营收分析发现(GMV/折扣率/复购率/月度趋势表格 + 洞察框)
+  - 2.2 用户生命周期发现(DAU/粘性/留存/LTV表格 + 洞察框)
+  - 2.3 产品分析发现(品类/品牌/价格带表格)
+  - 2.4 用户聚类发现(5群体特征表和运营策略表 + 洞察框)
+  - 2.5 行为转化发现(转化漏斗表格 + 洞察框)
+- 章节3: 交付物清单(9项交付物表格)
+- 章节4: 项目价值评估(业务价值量化表 + 技术资产列表)
+- 章节5: AI协作开发经验总结(协作模式表 + 关键经验 + 局限性)
+- 章节6: 后续优化方向(短期/中期/长期)
+- 章节7: 项目总结(总结性文字)
+- 输出文件: D:\softdata\claude\test002\tmall_summary.docx
+
+============================================================
+脚本6: D:\softdata\claude\test002\generate_future_plan.py
+============================================================
+功能: 生成未来扩展规划Word
+
+要求:
+- 章节1: 可扩展采集的数据维度(流量渠道/用户行为深度/商品供应链/客服售后/营销活动)
+- 章节2: 可扩展的BI报表搭建(实时大屏/用户生命周期看板/商品运营看板/营销效果看板)
+- 章节3: 可扩展的深度数据分析(ML预测建模/高级用户分析/文本图像分析/A/B测试平台)
+- 章节4: 数据基础设施建设建议(数仓分层/技术栈选型/数据治理)
+- 章节5: 建议实施路线图(4阶段: 基础完善1-2月/能力提升3-4月/智能化5-6月/平台化7-12月)
+- 章节6: 总结
+
+【生成顺序和依赖关系】
+
+请按以下顺序执行:
+1. 首先运行 user_profiling.py → 生成聚类结果并写入MySQL(后续脚本可能需要读取此表)
+2. 然后同时运行 unified_report.py 和 generate_exploration_report.py → 生成BI HTML和Word报告(两者互不依赖)
+3. 最后运行 generate_prd.py, generate_summary.py, generate_future_plan.py → 生成项目文档(互不依赖，可同时运行)
+
+【关键技术要点】
+
+1. 日期处理:
+- orders表中有两个日期字段: order_date(VARCHAR格式)和order_date_date(DATE格式)，优先使用order_date_date
+- registration_date为VARCHAR格式，需使用pd.to_datetime转换
+- behavior_time为DATETIME格式
+
+2. 数据聚合:
+- GMV = SUM(orders.total_amount)
+- 实际营收 = SUM(orders.actual_payment)
+- 折扣率 = SUM(discount) / SUM(total_amount)
+- 客单价ARPU = 实际营收 / 有订单的用户数
+- 复购率 = 订单数≥2的用户数 / 总用户数
+
+3. 用户生命周期计算:
+- DAU: 每日有行为记录的去重用户数(从user_behaviors表behavior_time按日聚合)
+- MAU: 每月有行为记录的去重用户数
+- 粘性比: DAU均值 / MAU均值
+- 月新增用户: 当月首次下单的用户数(从orders表按order_date_date聚合)
+- 月流失用户: 当月无行为但前30天有行为的用户数
+- 留存队列: 按用户首单周分组(Cohort)，计算每队列在第0/1/2/4/8/12周仍有行为的用户占比
+- 复购间隔: 同一用户相邻订单的order_date_date天数差
+- 生命周期阶段:
+  * 新用户: 首次下单≤30天
+  * 活跃用户: 最近30天有行为
+  * 沉默用户: 30-90天无行为
+  * 流失用户: >90天无行为
+
+4. RFM计算:
+- R(Recency): 距今天数，用固定参考日(如2025-12-31或数据最大日期)减去用户最后下单日期
+- F(Frequency): 用户历史订单总数
+- M(Monetary): 用户累计消费金额(actual_payment求和)
+
+5. 聚类:
+- random_state=42 必须固定
+- K值选择逻辑: 计算K=2到8的Silhouette Score和SSE，选择Silhouette最高且业务合理的K(预期K=5)
+- 聚类命名必须使用RFM综合排序法，确保5个群体名称不重复
+
+6. HTML Tab切换CSS核心逻辑:
+```css
+.tab-content { display: none; }
+#tab-0:checked ~ .tab-content-0,
+#tab-1:checked ~ .tab-content-1,
+... { display: block; }
+```
+
+7. Plotly图表在隐藏Tab中可能尺寸异常，解决方式:
+- 所有图表在页面加载时一次性渲染
+- Tab切换时调用 Plotly.Plots.resize() 或 new Promise(resolve => setTimeout(resolve, 100)).then(() => Plotly.Plots.resize())
+
+8. python-docx表格样式:
+- 使用 'Table Grid' 样式
+- 表头背景色 #667eea，字体白色加粗
+- 数据行交替 #F8F9FF / #FFFFFF
+- 表格居中对齐
+
+【Python依赖包】
+
+pymysql, pandas, numpy, plotly, scikit-learn, python-docx
+
+安装命令: pip install pymysql pandas numpy plotly scikit-learn python-docx
+
+【验收标准】
+
+1. unified_report.html 文件大小 > 200KB，包含 8 个Tab标签，37个以上Plotly图表
+2. 所有Tab可正常切换，图表在切换后无错位或重叠
+3. 响应式布局: 在1100px和768px宽度下正常显示
+4. 指标字典包含12+核心指标的定义和公式
+5. tmall_exploration_report.docx 无乱码，表格格式统一，约46KB
+6. user_profiling.py 运行无报错(pandas Warning除外)，random_state=42 下运行3次结果一致
+7. claude_user_clusters 表包含 5,000 行数据，5个不同的cluster_name
+8. 所有Word文档(.docx)可正常打开，中文无乱码，表格样式统一
+9. 所有Python脚本在同一Python环境下可一键运行(修改 user_auth_db.py 中的数据库密码后)
+10. KPI数据在BI HTML和Word报告中交叉验证一致
+
+【输出文件清单】
+
+D:\softdata\claude\test002\
+├── unified_report.py                  # 统一BI报表生成脚本
+├── unified_report.html                # 统一BI报表HTML (8 Tab, 37图表)
+├── generate_exploration_report.py     # 数据探索报告生成脚本
+├── tmall_exploration_report.docx      # 数据探索分析报告Word
+├── user_profiling.py                  # 用户聚类脚本
+├── user_clusters_report.html          # 用户聚类HTML报告
+├── generate_prd.py                    # PRD生成脚本
+├── tmall_prd.docx                     # PRD产品需求文档Word
+├── generate_summary.py                # 总结报告生成脚本
+├── tmall_summary.docx                 # 项目总结报告Word
+├── generate_future_plan.py            # 未来规划生成脚本
+├── tmall_future_plan.docx             # 未来扩展规划Word
+└── project_prompt.txt                 # 本复现提示词
+
+【数据库产出】
+
+MySQL表: tmall_data.claude_user_clusters
+字段: user_id VARCHAR(255), cluster INT, cluster_name VARCHAR(255), R值 DOUBLE, F值 DOUBLE, M值 DOUBLE, PCA_X DOUBLE, PCA_Y DOUBLE
+行数: 5,000
+用途: 存储用户聚类结果，可供后续分析和BI报表查询
+
+============================================================
+提示词结束
+============================================================
+
+使用说明:
+1. 将本提示词完整发送给AI编程助手(Claude Code/GPT-4/DeepSeek等)
+2. 确保AI助手可以访问MySQL数据库(localhost:3306, tmall_data)
+3. 确保Python环境已安装所需依赖包
+4. AI助手将按顺序生成6个Python脚本并运行
+5. 全部运行完成后，检查输出文件列表确认交付完整
+
+预计AI处理时间: 30-60分钟(取决于模型速度和上下文窗口)
+预计生成代码总量: ~3,500行 Python
+预计生成文档总量: ~600KB (HTML + Word × 4)
